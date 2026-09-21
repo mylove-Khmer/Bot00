@@ -96,7 +96,7 @@ USERS_FILE      = "aio_users.json"
 LANG_FILE       = "aio_lang.json"
 PROMO_FILE      = "aio_promos.json"
 SETTINGS_FILE   = "aio_settings.json"
-DISCOUNT_FILE   = "aio_discount.json"   # Global Discount File[cite: 1]
+DISCOUNT_FILE   = "aio_discount.json"   # Global Discount File
 
 PRODUCTS_FILE   = "aio_products.json"
 ORDERS_FILE     = "aio_orders.json"
@@ -220,7 +220,7 @@ http = _make_session()
 STRINGS = {
     "kh": {
         "welcome": (
-            "👋 សូស្ដីមក <b>Kairozen カイロゼン</b>!\n"
+            "👋 សួស្ដី <b>{}</b>! សូមស្វាគមន៍មកកាន់ <b>Kairozen カイロゼン</b>!\n"
             "━━━━━━━━━━━━━━━━━━\n"
             "🌟 Bot នេះផ្ដល់សេវាកម្ម:\n"
             "🛍️ ទិញផលិតផលឌីជីថល & Top Up Game\n"
@@ -248,10 +248,10 @@ STRINGS = {
         "how_to_use": (
             "💡 <b>របៀបប្រើប្រាស់</b>\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "1️⃣ ចុច <b>💳 ដាក់ប្រាក់</b> → ជ្រើស ចំនួន → ស្កេន QR តាម Bakong[cite: 1]\n"
-            "2️⃣ ចុច <b>🛍️ ហាងឌីជីថល</b> → ជ្រើស ផលិតផល → Plan → ទូទាត់[cite: 1]\n"
-            "3️⃣ ចុច <b>💎 ថុបអាប់ហ្គេម</b> → ជ្រើសហ្គេម និងកញ្ចប់ → បញ្ចូល ID[cite: 1]\n"
-            "4️⃣ ចុច <b>📊 សេវាកម្ម SMM</b> → Platform → សេវា → ចំនួន → ផ្ញើ Link[cite: 1]"
+            "1️⃣ ចុច <b>💳 ដាក់ប្រាក់</b> → ជ្រើស ចំនួន → ស្កេន QR តាម Bakong\n"
+            "2️⃣ ចុច <b>🛍️ ហាងឌីជីថល</b> → ជ្រើស ផលិតផល → Plan → ទូទាត់\n"
+            "3️⃣ ចុច <b>💎 ថុបអាប់ហ្គេម</b> → ជ្រើសហ្គេម និងកញ្ចប់ → បញ្ចូល ID\n"
+            "4️⃣ ចុច <b>📊 សេវាកម្ម SMM</b> → Platform → សេវា → ចំនួន → ផ្ញើ Link"
         ),
         "support_msg": (
             "💬 <b>Live Chat (ជជែកផ្ទាល់ជាមួយ Admin)</b>\n"
@@ -263,7 +263,7 @@ STRINGS = {
     },
     "en": {
         "welcome": (
-            "👋 Welcome to <b>Kairozen カイロゼン</b>!\n"
+            "👋 Welcome <b>{}</b> to <b>Kairozen カイロゼン</b>!\n"
             "━━━━━━━━━━━━━━━━━━\n"
             "🌟 Services available:\n"
             "🛍️ Buy Digital Products & Game Top Up\n"
@@ -291,10 +291,10 @@ STRINGS = {
         "how_to_use": (
             "💡 <b>How to Use</b>\n"
             "━━━━━━━━━━━━━━━━━━\n"
-            "1️⃣ Tap <b>💳 Top Up</b> → Choose Amount → Scan Bakong QR[cite: 1]\n"
-            "2️⃣ Tap <b>🛍️ Shop</b> → Choose Product → Plan → Pay[cite: 1]\n"
-            "3️⃣ Tap <b>💎 Game Top Up</b> → Choose Game/Package → Enter ID[cite: 1]\n"
-            "4️⃣ Tap <b>📊 SMM Services</b> → Platform → Service → Qty → Send Link[cite: 1]"
+            "1️⃣ Tap <b>💳 Top Up</b> → Choose Amount → Scan Bakong QR\n"
+            "2️⃣ Tap <b>🛍️ Shop</b> → Choose Product → Plan → Pay\n"
+            "3️⃣ Tap <b>💎 Game Top Up</b> → Choose Game/Package → Enter ID\n"
+            "4️⃣ Tap <b>📊 SMM Services</b> → Platform → Service → Qty → Send Link"
         ),
         "support_msg": (
             "💬 <b>Live Chat with Admin</b>\n"
@@ -1001,8 +1001,11 @@ def cmd_start(message):
 
 def _show_welcome(uid):
     b = bal(uid)
+    lang = get_lang(uid)
+    default_name = "Guest" if lang == "en" else "ភ្ញៀវ"
+    name = users_db.get(str(uid), {}).get("name") or default_name
     bot.send_message(uid,
-        t(uid, "welcome", b),
+        t(uid, "welcome", name, b),
         parse_mode="HTML",
         reply_markup=main_kb(uid))
 
@@ -2528,8 +2531,8 @@ def handle(message):
                  InlineKeyboardButton("📘 Facebook",  callback_data="smmaddcat:Facebook")],
                 [InlineKeyboardButton("📸 Instagram", callback_data="smmaddcat:Instagram"),
                  InlineKeyboardButton("▶️ YouTube",   callback_data="smmaddcat:YouTube")],
-                [InlineKeyboardButton("📱 Telegram",  callback_data="smmaddcat:Telegram"),
-                 InlineKeyboardButton("🐦 Twitter",   callback_data="smmaddcat:Twitter")],
+                [InlineKeyboardButton("📱 Telegram",  callback_data="smmaddcat:Telegram")],
+                [InlineKeyboardButton("🐦 Twitter",   callback_data="smmaddcat:Twitter")],
                 [InlineKeyboardButton("✏️ Custom Category", callback_data="smmaddcat:custom")],
             ])
             bot.send_message(uid,
@@ -3034,7 +3037,7 @@ def print_banner():
 ║     {CLR_YELLOW}ហាង + SMM Panel · ដាក់លុយ KHQR · Top Up Game Menu       {CLR_CYAN}║
 ║     {CLR_MAGENTA}Global Discount · Panel Admin · Promo Code              {CLR_CYAN}║
 ║     {CLR_WHITE}Compatible: Python 3.10+ · Termux / Pydroid 3         {CLR_CYAN}║
-╚══════════════════════════════════════════════════════════════╝{CLR_RESET}
+╚═══════════════════════════════════════════════════════════╝{CLR_RESET}
 """
     print(banner)
 
