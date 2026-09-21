@@ -84,7 +84,7 @@ BANK_ACCOUNT       = "mon_samnang@bkrt"
 MERCHANT_NAME      = "Khmer SMM"
 MERCHANT_CITY      = "Phnom Penh"
 
-DEPOSIT_EXPIRE_SEC = 1200  # 20 នាទី[cite: 1]
+DEPOSIT_EXPIRE_SEC = 300   # 5 នាទី (បានកែប្រែរួចរាល់)
 POLL_INTERVAL      = 5
 STOCK_ALERT_MIN    = 5
 
@@ -805,7 +805,7 @@ def _send_deposit_qr(uid, amount, promo_code=None, label="💳 ដាក់ប�
     cap = (f"{label}\n"
            f"━━━━━━━━━━━━━━━━━━\n"
            f"💰 ចំនួន: <b>${final_amount:.2f}</b>\n"
-           f"⏱ រាប់ថយក្រោយ: <b>20:00 នាទី</b>\n"
+           f"⏱ រាប់ថយក្រោយ: <b>05:00 នាទី</b>\n"
            f"━━━━━━━━━━━━━━━━━━\n"
            f"📱 <b>Bakong KHQR សម្រាប់ទូទាត់</b>")
     
@@ -2876,7 +2876,7 @@ def handle(message):
         livechat_users.discard(uid)
         b = bal(uid)
         my_deps = [(k, v) for k, v in store_deps.items()
-                   if v.get("uid") == uid_str]
+                   if v.get("uid"] == uid_str]
         confirmed = sum(float(v.get("amount",0)) for _, v in my_deps if v.get("status")=="confirmed")
         pending   = sum(float(v.get("amount",0)) for _, v in my_deps if v.get("status")=="pending")
         bot.send_message(uid,
@@ -3040,7 +3040,7 @@ def print_banner():
 
 # ═══════════════════════════════════════════════════════════
 #  MAIN
-# ════════════════════════════_═══════════════════════════════
+# ═══════════════════════════════════════════════════════════
 if __name__ == "__main__":
     print_banner()
     logger.info(f"{CLR_BOLD}{CLR_GREEN}🚀 Kairozen All-in-One Bot v4 កំពុងចាប់ផ្ដើម...{CLR_RESET}")
