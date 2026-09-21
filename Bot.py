@@ -6,6 +6,8 @@
 ║     Global Discount · Panel Admin · Promo Code              ║
 ║     Compatible: Python 3.10+ · Termux / Pydroid 3         ║
 ╚══════════════════════════════════════════════════════════════╝
+ដំឡើង:
+  pip install pyTelegramBotAPI requests flask qrcode pillow --break-system-packages
 """
 
 import json, logging, time, re, threading, hashlib, io, os, sys, subprocess, datetime
@@ -19,6 +21,7 @@ from flask import Flask, request as flask_request, jsonify
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+# ─── COLOR CONSTANTS FOR TERMINAL ───
 CLR_RESET   = "\033[0m"
 CLR_BOLD    = "\033[1m"
 CLR_RED     = "\033[91m"
@@ -29,6 +32,11 @@ CLR_MAGENTA = "\033[95m"
 CLR_CYAN    = "\033[96m"
 CLR_WHITE   = "\033[97m"
 
+BG_RED      = "\033[41m"
+BG_GREEN    = "\033[42m"
+BG_BLUE     = "\033[44m"
+
+# Custom Colored Formatter for Logging
 class ColoredFormatter(logging.Formatter):
     FORMATS = {
         logging.DEBUG:    f"{CLR_CYAN}%(asctime)s{CLR_RESET} [{CLR_BLUE}%(levelname)s{CLR_RESET}] %(message)s",
@@ -37,32 +45,40 @@ class ColoredFormatter(logging.Formatter):
         logging.ERROR:    f"{CLR_CYAN}%(asctime)s{CLR_RESET} [{CLR_RED}%(levelname)s{CLR_RESET}] %(message)s",
         logging.CRITICAL: f"{CLR_CYAN}%(asctime)s{CLR_RESET} [{CLR_BOLD}{CLR_RED}%(levelname)s{CLR_RESET}] %(message)s"
     }
+
     def format(self, record):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 
+# Setup Logging with Colors
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(ColoredFormatter())
 logger.addHandler(console_handler)
 
+# ─── Auto-install deps ───
 def _ensure_deps():
     pkgs = {"PIL": "pillow", "qrcode": "qrcode"}
     for mod, pkg in pkgs.items():
         try: __import__(mod)
         except ImportError:
             logger.info(f"{CLR_YELLOW}Installing missing package: {pkg}...{CLR_RESET}")
-            subprocess.run([sys.executable, "-m", "pip", "install", pkg, "--break-system-packages", "-q"], check=False)
+            subprocess.run([sys.executable, "-m", "pip", "install", pkg,
+                            "--break-system-packages", "-q"], check=False)
 _ensure_deps()
 
 import qrcode
 from PIL import Image, ImageDraw, ImageFont
 
+# ═══════════════════════════════════════════════════════════
+#  CONFIG  — ដូរតម្លៃទាំងនេះ
+# ═══════════════════════════════════════════════════════════
 BOT_TOKEN          = "8914728102:AAGQUK5BS4E5TIYWpgcLA1xujoLCVE6BK-Q"
 ADMIN_ID           = 8807182741
 
+# Bakong KHQR (ដាក់ Token ពេញលេញពីអ៊ីមែលរបស់អ្នក)
 BAKONG_TOKEN       = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXJjb2pMZm1lYzJNY1GQ2NDAyYiJvJiJvJjkuSWJXi03NDQzNDQzNTIzNzFNaHptNGxDbTYiLCJpc3MiOiJCYWtvbmcifQ.eyJhaGNvdW50X2lkIjoibW9uX3NhbW5hbmdAYmtydCIsImRhdGVfaXNzdWVkIjoiMTc2MzgyOTc1MCIsImV4cGlyZXNfYXQiOjE4MjkyMzg5NTB9"
 BANK_ACCOUNT       = "mon_samnang@bkrt"
 MERCHANT_NAME      = "Khmer SMM"
@@ -72,12 +88,15 @@ DEPOSIT_EXPIRE_SEC = 300   # 5 នាទី[cite: 1]
 POLL_INTERVAL      = 5
 STOCK_ALERT_MIN    = 5
 
+# ═══════════════════════════════════════════════════════════
+#  FILES
+# ═══════════════════════════════════════════════════════════
 WALLETS_FILE    = "aio_wallets.json"
 USERS_FILE      = "aio_users.json"
 LANG_FILE       = "aio_lang.json"
 PROMO_FILE      = "aio_promos.json"
 SETTINGS_FILE   = "aio_settings.json"
-DISCOUNT_FILE   = "aio_discount.json"[cite: 1]
+DISCOUNT_FILE   = "aio_discount.json"   # Global Discount File[cite: 1]
 
 PRODUCTS_FILE   = "aio_products.json"
 ORDERS_FILE     = "aio_orders.json"
@@ -102,6 +121,7 @@ def _save(path, data):
             json.dump(data, f, ensure_ascii=False, indent=2)
     except Exception as e: logger.error(f"{CLR_RED}Save {path}: {e}{CLR_RESET}")
 
+# ─── Load all state ───
 wallets         = _load(WALLETS_FILE,   {})
 users_db        = _load(USERS_FILE,     {})
 user_lang       = _load(LANG_FILE,      {})
@@ -121,9 +141,10 @@ smm_orders      = _load(SMM_ORD_FILE,   {})
 smm_profit      = _load(SMM_PROFIT_FILE,{"pct": 20})
 smm_poll        = _load(SMM_POLL_FILE,  {"interval": POLL_INTERVAL})
 
-waiting         = {}
+waiting         = {}   # uid -> step/dict
 lang_cooldown   = {}
 
+# Default products including Mobile Legends, Free Fire KH/SG, Roblox, and PUBG Mobile
 if not products:
     products = [
         {"id": "mobilelegends", "name": "Mobile Legends", "icon": "⚔️",
@@ -177,6 +198,9 @@ if not products:
     ]
     _save(PRODUCTS_FILE, products)
 
+# ═══════════════════════════════════════════════════════════
+#  BOT + HTTP
+# ═══════════════════════════════════════════════════════════
 bot = telebot.TeleBot(BOT_TOKEN, parse_mode=None)
 
 def _make_session():
@@ -187,6 +211,9 @@ def _make_session():
     return s
 http = _make_session()
 
+# ═══════════════════════════════════════════════════════════
+#  LANGUAGE
+# ═══════════════════════════════════════════════════════════
 STRINGS = {
     "kh": {
         "welcome": (
@@ -298,6 +325,9 @@ def toggle_lang(uid):
 def lang_flag(uid):
     return {"kh": "🇰🇭 ខ្មែរ", "en": "🇬🇧 English"}.get(get_lang(uid), "🇰🇭")
 
+# ═══════════════════════════════════════════════════════════
+#  WALLET & DISCOUNT HELPERS
+# ═══════════════════════════════════════════════════════════
 def bal(uid): return float(wallets.get(str(uid), 0))
 def add_bal(uid, amt):
     wallets[str(uid)] = round(bal(uid) + amt, 2)
@@ -315,6 +345,9 @@ def _calc_discounted_price(price):
         return round(price * (1 - pct / 100), 2)
     return price
 
+# ═══════════════════════════════════════════════════════════
+#  PROMO CODE
+# ═══════════════════════════════════════════════════════════
 def apply_promo(uid, code, amount):
     code = code.strip().upper()
     p = promos.get(code)
@@ -341,6 +374,9 @@ def confirm_promo(code, uid):
     p["user_used"] = uu
     _save(PROMO_FILE, promos)
 
+# ═══════════════════════════════════════════════════════════
+#  KEYBOARDS
+# ═══════════════════════════════════════════════════════════
 def main_kb(uid=None):
     lang = get_lang(uid) if uid else "kh"
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -521,6 +557,9 @@ def plans_kb(prod_id):
     btns.append([InlineKeyboardButton("🔙 Back", callback_data="back:gamemenu" if prod_id in game_ids else "back:shop")])
     return InlineKeyboardMarkup(btns)
 
+# ═══════════════════════════════════════════════════════════
+#  PRODUCT HELPERS
+# ═══════════════════════════════════════════════════════════
 def _get_product(pid):
     for p in products:
         if p["id"] == pid: return p
@@ -556,6 +595,9 @@ def _pop_stock(pid, plan_idx=None):
     _save(STOCK_FILE, stock)
     return item
 
+# ═══════════════════════════════════════════════════════════
+#  SMM HELPERS
+# ═══════════════════════════════════════════════════════════
 def _smm_get_categories():
     cats = []
     for s in smm_services.values():
@@ -607,6 +649,9 @@ def _smm_clean_name(raw):
     raw = re.sub(r'\s*\(.*?\)\s*', ' ', raw)
     return re.sub(r'\s+', ' ', raw).strip()[:60]
 
+# ═══════════════════════════════════════════════════════════
+#  BAKONG KHQR & COUNTDOWN TIMER
+# ═══════════════════════════════════════════════════════════
 def _generate_khqr(uid, amount, note=""):
     try:
         from bakong_khqr import KHQR
@@ -819,6 +864,9 @@ def _send_deposit_qr(uid, amount, promo_code=None, label="💳 ដាក់ប�
     threading.Thread(target=_watch_deposit,
                      args=(uid, uid_str, dep_id, final_amount, start_ts, sent_msg_id), daemon=True).start()
 
+# ═══════════════════════════════════════════════════════════
+#  TRACK USER & START
+# ═══════════════════════════════════════════════════════════
 def _track_user(message):
     uid = message.chat.id
     uid_str = str(uid)
@@ -868,6 +916,9 @@ def _show_welcome(uid):
         parse_mode="HTML",
         reply_markup=main_kb(uid))
 
+# ═══════════════════════════════════════════════════════════
+#  CALLBACKS
+# ═══════════════════════════════════════════════════════════
 @bot.callback_query_handler(func=lambda c: c.data.startswith("setlang:"))
 def cb_setlang(call):
     uid  = call.message.chat.id
@@ -1182,6 +1233,9 @@ def cb_back(call):
     elif dest == "smmcats":
         bot.send_message(uid, "📊 <b>SMM Services</b>", parse_mode="HTML", reply_markup=smm_cat_kb())
 
+# ═══════════════════════════════════════════════════════════
+#  MAIN MESSAGE HANDLER (Live Chat & Support)
+# ═══════════════════════════════════════════════════════════
 @bot.message_handler(func=lambda m: True)
 def handle(message):
     uid     = message.chat.id
@@ -1208,11 +1262,11 @@ def handle(message):
                 target_uid = int(match.group(1))
                 try:
                     if message.photo:
-                        bot.send_photo(target_uid, message.photo[-1].file_id, caption=f"💬 <b>Admin ตอบกลับ:</b>\n{message.caption or ''}", parse_mode="HTML")
+                        bot.send_photo(target_uid, message.photo[-1].file_id, caption=f"💬 <b>Admin ឆ្លើយតប៖</b>\n{message.caption or ''}", parse_mode="HTML")
                     elif message.video:
-                        bot.send_video(target_uid, message.video.file_id, caption=f"💬 <b>Admin ตอบกลับ:</b>\n{message.caption or ''}", parse_mode="HTML")
+                        bot.send_video(target_uid, message.video.file_id, caption=f"💬 <b>Admin ឆ្លើយតប៖</b>\n{message.caption or ''}", parse_mode="HTML")
                     else:
-                        bot.send_message(target_uid, f"💬 <b>Admin ตอบกลับ:</b>\n{text}", parse_mode="HTML")
+                        bot.send_message(target_uid, f"💬 <b>Admin ឆ្លើយតប៖</b>\n{text}", parse_mode="HTML")
                     bot.reply_to(message, "✅ បានផ្ញើសារឆ្លើយតបទៅអតិថិជនជោគជ័យ!")
                 except Exception as e:
                     bot.reply_to(message, f"❌ បរាជ័យក្នុងការផ្ញើ: {e}")
@@ -1357,6 +1411,9 @@ def handle(message):
 
     bot.send_message(uid, t(uid, "fallback"), reply_markup=main_kb(uid))
 
+# ═══════════════════════════════════════════════════════════
+#  FLASK CONTROL SERVER
+# ═══════════════════════════════════════════════════════════
 flask_app = Flask(__name__)
 CONTROL_KEY = "kairozen_secret_2025"
 
