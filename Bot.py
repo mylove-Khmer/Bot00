@@ -78,7 +78,7 @@ from PIL import Image, ImageDraw, ImageFont
 BOT_TOKEN          = "8914728102:AAGkoa_RIi2hQmCMr8SzVdxZ7Nv7YgfRcIo"
 ADMIN_ID           = 8807182741
 
-# Bakong KHQR (ដាក់ Token ពេញលេញពីអ៊ីមែលរបស់អ្នក)[cite: 5, 7, 8]
+# Bakong KHQR (ដាក់ Token ពេញលេញពីអ៊ីមែលរបស់អ្នក)
 BAKONG_TOKEN       = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXJjb2pMZm1lYzJNY1GQ2NDAyYiJvJiJvJjkuSWJXi03NDQzNDQzNTIzNzFNaHptNGxDbTYiLCJpc3MiOiJCYWtvbmcifQ.eyJhaGNvdW50X2lkIjoibW9uX3NhbW5hbmdAYmtydCIsImRhdGVfaXNzdWVkIjoiMTc2MzgyOTc1MCIsImV4cGlyZXNfYXQiOjE4MjkyMzg5NTB9"
 BANK_ACCOUNT       = "mon_samnang@bkrt"
 MERCHANT_NAME      = "Khmer SMM"
@@ -156,7 +156,7 @@ if not products:
              {"label": "706 Diamonds", "price": 9.50}
          ]},
         {"id": "freefire", "name": "Free Fire KH/SG", "icon": "💎",
-         "desc": "Free Fire KH/SG Top Up · Delivery via User ID[cite: 4]",
+         "desc": "Free Fire KH/SG Top Up · Delivery via User ID",
          "plans": [
              {"label": "Weekly Pass", "price": 1.54},
              {"label": "Monthly Membership", "price": 7.59},
@@ -507,6 +507,10 @@ def smm_qty_kb(slug, s):
         price = sr * q / 1000
         btns.append([InlineKeyboardButton(
             f"{q:,} {first} — ${price:.2f}", callback_data=f"smmqty:{slug}:{q}")])
+    
+    # ➕ បន្ថែមប៊ូតុងឱ្យភ្ញៀវវាយបញ្ចូលចំនួនដោយខ្លួនឯង (Custom Qty)
+    btns.append([InlineKeyboardButton("✏️ បញ្ចូលចំនួនផ្ទាល់ខ្លួន (Custom Qty)", callback_data=f"smmcustom:{slug}")])
+    
     btns.append([InlineKeyboardButton("🔙 Back", callback_data="back:smmcats")])
     return InlineKeyboardMarkup(btns)
 
@@ -1273,7 +1277,7 @@ def cb_plan(call):
         if pid == "mobilelegends":
             prompt_text = "⚔️ <b>Mobile Legends</b> — <b>${:.2f}</b>\n━━━━━━━━━━━━━━━━━━\n🎮 សូមបញ្ចូល <b>User ID & Zone ID</b> របស់អ្នក:\n<i>ឧ: 12345678 (1234)</i>".format(price)
         elif pid == "freefire":
-            prompt_text = "💎 <b>Free Fire KH/SG</b> — <b>${:.2f}</b>\n━━━━━━━━━━━━━━━━━━\n🎮 សូមបញ្ចូល <b>User ID</b> របស់អ្នក[cite: 4]:".format(price)
+            prompt_text = "💎 <b>Free Fire KH/SG</b> — <b>${:.2f}</b>\n━━━━━━━━━━━━━━━━━━\n🎮 សូមបញ្ចូល <b>User ID</b> របស់អ្នក:".format(price)
         elif pid == "roblox":
             prompt_text = "🟥 <b>Roblox</b> — <b>${:.2f}</b>\n━━━━━━━━━━━━━━━━━━\n👤 សូមបញ្ចូល <b>Roblox Username</b> របស់អ្នក:".format(price)
         else:
@@ -1531,6 +1535,28 @@ def cb_smmqty(call):
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="back:main")]]))
     except:
         bot.send_message(uid, f"🔗 ផ្ញើ Link:", parse_mode="HTML", reply_markup=cancel_kb())
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith("smmcustom:"))
+def cb_smmcustom(call):
+    uid = call.message.chat.id
+    slug = call.data.split(":")[1]
+    bot.answer_callback_query(call.id)
+    s = smm_services.get(slug)
+    if not s: return
+    
+    waiting[uid] = {"step": "smm_custom_qty", "slug": slug}
+    mn = s.get("min", 100)
+    mx = s.get("max", 100000)
+    
+    bot.send_message(
+        uid,
+        f"✏️ <b>សូមបញ្ចូលចំនួន (Quantity) ដែលអ្នកចង់ទិញ៖</b>\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"📏 Min: <b>{mn:,}</b>  ·  Max: <b>{mx:,}</b>\n"
+        f"<i>(សូមវាយជាតួលេខសុទ្ធ ឧទាហរណ៍: 2500)</i>",
+        parse_mode="HTML",
+        reply_markup=cancel_kb()
+    )
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("addstock_prod:"))
 def cb_addstock_prod(call):
@@ -2662,6 +2688,44 @@ def handle(message):
         except: pass
         return
 
+    if isinstance(step, dict) and step.get("step") == "smm_custom_qty":
+        slug = step["slug"]
+        s = smm_services.get(slug)
+        waiting.pop(uid, None)
+        
+        if not s:
+            bot.send_message(uid, "❌ Service រកមិនឃើញ", reply_markup=main_kb(uid))
+            return
+            
+        try:
+            qty = int(text.replace(",", "").replace(".", ""))
+            mn = s.get("min", 100)
+            mx = s.get("max", 100000)
+            
+            if qty < mn or qty > mx:
+                bot.send_message(uid, f"❌ ចំនួនត្រូវស្ថិតចន្លោះពី <b>{mn:,}</b> ដល់ <b>{mx:,}</b>!", parse_mode="HTML", reply_markup=main_kb(uid))
+                return
+        except ValueError:
+            bot.send_message(uid, "❌ សូមបញ្ចូលជាតួលេខត្រឹមត្រូវ!", reply_markup=main_kb(uid))
+            return
+            
+        sr = _smm_sell_rate(s["cost_rate"], slug)
+        price = sr * qty / 1000
+        
+        waiting[uid] = {"step": "smm_link", "slug": slug, "qty": qty, "price": price}
+        
+        bot.send_message(
+            uid,
+            f"🔗 <b>សូមផ្ញើ Link របស់អ្នកមក៖</b>\n"
+            f"━━━━━━━━━━━━━━━━━━\n"
+            f"📊 {s.get('label', slug)}\n"
+            f"🔢 ចំនួន: <b>{qty:,}</b>\n"
+            f"💰 តម្លៃសរុប: <b>${price:.4f}</b>",
+            parse_mode="HTML",
+            reply_markup=cancel_kb()
+        )
+        return
+
     if isinstance(step, dict) and step.get("step") == "smm_link":
         slug  = step["slug"]
         qty   = step["qty"]
@@ -2889,7 +2953,7 @@ def broadcast_web():
     data = flask_request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
     if not text:
-        return jsonify({"error": "No text provided"}), 400
+        return jsonify({"error": "No text provided"}}, 400
     sent = failed = 0
     for u_id in list(users_db.keys()):
         try:
