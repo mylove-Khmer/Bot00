@@ -2952,7 +2952,7 @@ def broadcast_web():
     data = flask_request.get_json(silent=True) or {}
     text = data.get("text", "").strip()
     if not text:
-        return jsonify({"error": "No text provided"}}, 400
+        return jsonify({"error": "No text provided"}), 400
     sent = failed = 0
     for u_id in list(users_db.keys()):
         try:
