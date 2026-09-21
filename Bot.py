@@ -84,7 +84,7 @@ BANK_ACCOUNT       = "mon_samnang@bkrt"
 MERCHANT_NAME      = "Khmer SMM"
 MERCHANT_CITY      = "Phnom Penh"
 
-DEPOSIT_EXPIRE_SEC = 1200  # 20 នាទី (កែសម្រួលរួចរាល់)[cite: 1]
+DEPOSIT_EXPIRE_SEC = 1200  # 20 នាទី[cite: 1]
 POLL_INTERVAL      = 5
 STOCK_ALERT_MIN    = 5
 
@@ -606,7 +606,7 @@ def _smm_get_categories():
     return cats
 
 def _smm_get_svcs_in_cat(cat):
-    return [(slug, s) for slug, s in smm_services.items() if s.get("category"] == cat]
+    return [(slug, s) for slug, s in smm_services.items() if s.get("category") == cat]
 
 def _smm_profit_pct(): return float(smm_profit.get("pct", 20))
 
@@ -2818,7 +2818,7 @@ def handle(message):
     if text in ("👜 កាបូបលុយ", "👜 Wallet"):
         b = bal(uid)
         my_deps = [(k, v) for k, v in store_deps.items()
-                   if v.get("uid"] == uid_str]
+                   if v.get("uid") == uid_str]
         confirmed = sum(float(v.get("amount",0)) for _, v in my_deps if v.get("status")=="confirmed")
         pending   = sum(float(v.get("amount",0)) for _, v in my_deps if v.get("status")=="pending")
         bot.send_message(uid,
@@ -2985,4 +2985,3 @@ if __name__ == "__main__":
     logger.info(f"{CLR_BOLD}{CLR_GREEN}🚀 Kairozen All-in-One Bot v4 កំពុងចាប់ផ្ដើម...{CLR_RESET}")
     threading.Thread(target=run_flask, daemon=True).start()
     bot.infinity_polling(timeout=20, long_polling_timeout=15)
-```[cite: 1]
