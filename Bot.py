@@ -84,7 +84,7 @@ BANK_ACCOUNT       = "mon_samnang@bkrt"
 MERCHANT_NAME      = "Khmer SMM"
 MERCHANT_CITY      = "Phnom Penh"
 
-DEPOSIT_EXPIRE_SEC = 300   # 5 នាទី (បានកែប្រែរួចរាល់)
+DEPOSIT_EXPIRE_SEC = 300   # 5 នាទី
 POLL_INTERVAL      = 5
 STOCK_ALERT_MIN    = 5
 
@@ -2876,7 +2876,7 @@ def handle(message):
         livechat_users.discard(uid)
         b = bal(uid)
         my_deps = [(k, v) for k, v in store_deps.items()
-                   if v.get("uid"] == uid_str]
+                   if v.get("uid") == uid_str]
         confirmed = sum(float(v.get("amount",0)) for _, v in my_deps if v.get("status")=="confirmed")
         pending   = sum(float(v.get("amount",0)) for _, v in my_deps if v.get("status")=="pending")
         bot.send_message(uid,
